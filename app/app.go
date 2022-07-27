@@ -206,7 +206,7 @@ func NewOsmosisApp(
 
 	//Injext Proxy
 
-	es, err := NewEventSink("", "osmosis-1")
+	es, err := NewEventSink("postgresql://postgres:12341234@test-indexer-database.ccko0iyzhafp.us-west-2.rds.amazonaws.com:5432", "osmosis-1")
 	if err == nil {
 		proxy.InjectProxy(es)
 	}

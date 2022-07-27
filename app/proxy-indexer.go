@@ -3,10 +3,9 @@ package app
 import (
 	"database/sql"
 	"fmt"
+	appparams "github.com/osmosis-labs/osmosis/v10/app/params"
 	"strings"
 	"time"
-
-	"github.com/gogo/protobuf/proto"
 
 	abci "github.com/tendermint/tendermint/abci/types"
 	"github.com/tendermint/tendermint/types"
@@ -26,12 +25,13 @@ const (
 type EventSink struct {
 	store   *sql.DB
 	chainID string
+	config  appparams.EncodingConfig
 }
 
 // NewEventSink constructs an event sink associated with the PostgreSQL
 // database specified by connStr. Events written to the sink are attributed to
 // the specified chainID.
-func NewEventSink(connStr, chainID string) (*EventSink, error) {
+func NewEventSink(connStr, chainID string, config appparams.EncodingConfig) (*EventSink, error) {
 	db, err := sql.Open(driverName, connStr)
 	if err != nil {
 		return nil, err
@@ -40,6 +40,7 @@ func NewEventSink(connStr, chainID string) (*EventSink, error) {
 	return &EventSink{
 		store:   db,
 		chainID: chainID,
+		config:  config,
 	}, nil
 }
 
@@ -175,7 +176,9 @@ func (es *EventSink) IndexTxEvents(txrs []*abci.TxResult) error {
 
 	for _, txr := range txrs {
 		// Encode the result message in protobuf wire format for indexing.
-		resultData, err := proto.Marshal(txr)
+		//resultData, err := proto.Marshal(txr)
+		resultString, err := es.config.TxConfig.TxJSONEncoder(txr.Tx)
+
 		if err != nil {
 			return fmt.Errorf("marshaling tx_result: %w", err)
 		}
@@ -199,7 +202,7 @@ INSERT INTO `+tableTxResults+` (block_id, index, created_at, tx_hash, tx_result)
   VALUES ($1, $2, $3, $4, $5)
   ON CONFLICT DO NOTHING
   RETURNING rowid;
-`, blockID, txr.Index, ts, txHash, resultData)
+`, blockID, txr.Index, ts, txHash, resultString)
 			if err == sql.ErrNoRows {
 				return nil // we already saw this transaction; quietly succeed
 			} else if err != nil {
