@@ -209,6 +209,8 @@ func NewOsmosisApp(
 	es, err := NewEventSink("postgresql://postgres:12341234@test-indexer-database.ccko0iyzhafp.us-west-2.rds.amazonaws.com:5432", "osmosis-1", encodingConfig)
 	if err == nil {
 		proxy.InjectProxy(es)
+	} else {
+		panic(fmt.Errorf("failed to register proxy: %s", err))
 	}
 	// NOTE: we may consider parsing `appOpts` inside module constructors. For the moment
 	// we prefer to be more strict in what arguments the modules expect.
