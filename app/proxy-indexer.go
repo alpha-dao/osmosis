@@ -177,10 +177,13 @@ func (es *EventSink) IndexTxEvents(txrs []*abci.TxResult) error {
 	for _, txr := range txrs {
 		// Encode the result message in protobuf wire format for indexing.
 		//resultData, err := proto.Marshal(txr)
-		resultString, err := es.config.TxConfig.TxJSONEncoder()(types.Tx(txr.Tx))
-
+		cosmosTx, err := es.config.TxConfig.TxDecoder()(txr.Tx)
 		if err != nil {
-			return fmt.Errorf("marshaling tx_result: %w", err)
+			return fmt.Errorf("1 marshaling tx_result: %w", err)
+		}
+		resultString, err := es.config.TxConfig.TxJSONEncoder()(cosmosTx)
+		if err != nil {
+			return fmt.Errorf("2 marshaling tx_result: %w", err)
 		}
 
 		// Index the hash of the underlying transaction as a hex string.
