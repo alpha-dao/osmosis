@@ -205,7 +205,11 @@ func NewOsmosisApp(
 	/****  Module Options ****/
 
 	//Injext Proxy
-	proxy.InjectProxy(nil)
+
+	es, err := NewEventSink("", "osmosis-1")
+	if err == nil {
+		proxy.InjectProxy(es)
+	}
 	// NOTE: we may consider parsing `appOpts` inside module constructors. For the moment
 	// we prefer to be more strict in what arguments the modules expect.
 	skipGenesisInvariants := cast.ToBool(appOpts.Get(crisis.FlagSkipGenesisInvariants))
