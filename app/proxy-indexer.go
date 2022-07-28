@@ -178,6 +178,7 @@ func (es *EventSink) IndexTxEvents(txrs []*abci.TxResult) error {
 		// Encode the result message in protobuf wire format for indexing.
 		//resultData, err := proto.Marshal(txr)
 		cosmosTx, err := es.config.TxConfig.TxDecoder()(txr.Tx)
+		codespace, code, info, gasWanted, gasUsed := txr.Result.Codespace, txr.Result.Code, txr.Result.Info, txr.Result.GasWanted, txr.Result.GasUsed
 		if err != nil {
 			return fmt.Errorf("1 marshaling tx_result: %w", err)
 		}
@@ -201,11 +202,11 @@ SELECT rowid FROM `+tableBlocks+` WHERE height = $1 AND chain_id = $2;
 
 			// Insert a record for this tx_result and capture its ID for indexing events.
 			txID, err := queryWithID(dbtx, `
-INSERT INTO `+tableTxResults+` (block_id, index, created_at, tx_hash, tx_result)
-  VALUES ($1, $2, $3, $4, $5)
+INSERT INTO `+tableTxResults+` (block_id, index, created_at, tx_hash, tx_result, code, codespace, gas_used, gas_wanted, info)
+  VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
   ON CONFLICT DO NOTHING
   RETURNING rowid;
-`, blockID, txr.Index, ts, txHash, resultString)
+`, blockID, txr.Index, ts, txHash, resultString, code, codespace, gasUsed, gasWanted, info)
 			if err == sql.ErrNoRows {
 				return nil // we already saw this transaction; quietly succeed
 			} else if err != nil {
