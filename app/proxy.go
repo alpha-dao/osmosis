@@ -222,7 +222,7 @@ INSERT INTO `+tableTxMsgs+` (tx_id, index, signer, msg_string, block_height)
   VALUES ($1, $2, $3, $4, $5)
   ON CONFLICT DO NOTHING
   RETURNING rowid;
-`, txID, i, signer, msg.String(), txr.Height)
+`, txID, i, signer.String(), msg.String(), txr.Height)
 
 					if err != nil {
 						return fmt.Errorf("indexing msg: %w", err)
