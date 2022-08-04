@@ -17,6 +17,7 @@ import (
 	"github.com/tendermint/tendermint/libs/log"
 	tmos "github.com/tendermint/tendermint/libs/os"
 	tmproto "github.com/tendermint/tendermint/proto/tendermint/types"
+	"github.com/tendermint/tendermint/state/indexer/sink/proxy"
 	dbm "github.com/tendermint/tm-db"
 
 	wasmkeeper "github.com/CosmWasm/wasmd/x/wasm/keeper"
