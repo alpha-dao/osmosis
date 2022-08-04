@@ -7,6 +7,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/gogo/protobuf/jsonpb"
 	abci "github.com/tendermint/tendermint/abci/types"
 	"github.com/tendermint/tendermint/types"
 )
@@ -28,7 +29,9 @@ type EventSink struct {
 	chainID string
 	config  appparams.EncodingConfig
 }
-
+var (
+	jsonpbMarshaller = jsonpb.Marshaler{}
+)
 // NewEventSink constructs an event sink associated with the PostgreSQL
 // database specified by connStr. Events written to the sink are attributed to
 // the specified chainID.
@@ -217,12 +220,17 @@ INSERT INTO `+tableTxResults+` (block_id, index, created_at, tx_hash, tx_result,
 			//Insert Msgs
 			for _, msg := range cosmosTx.GetMsgs() {
 				for i, signer := range msg.GetSigners() {
-					_, err := queryWithID(dbtx, `
+					msgString, err := jsonpbMarshaller.MarshalToString(msg)
+					if err != nil {
+						return fmt.Errorf("indexing msg: %w", err)
+					}
+
+					_, err = queryWithID(dbtx, `
 INSERT INTO `+tableTxMsgs+` (tx_id, index, signer, msg_string, block_height)
   VALUES ($1, $2, $3, $4, $5)
   ON CONFLICT DO NOTHING
   RETURNING rowid;
-`, txID, i, signer.String(), msg.String(), txr.Height)
+`, txID, i, signer.String(), msgString., txr.Height)
 
 					if err != nil {
 						return fmt.Errorf("indexing msg: %w", err)
