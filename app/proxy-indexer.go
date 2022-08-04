@@ -14,6 +14,7 @@ import (
 const (
 	tableBlocks     = "blocks"
 	tableTxResults  = "tx_results"
+	tableTxMsgs     = "tx_messages"
 	tableEvents     = "events"
 	tableAttributes = "attributes"
 	driverName      = "postgres"
@@ -211,6 +212,22 @@ INSERT INTO `+tableTxResults+` (block_id, index, created_at, tx_hash, tx_result,
 				return nil // we already saw this transaction; quietly succeed
 			} else if err != nil {
 				return fmt.Errorf("indexing tx_result: %w", err)
+			}
+
+			//Insert Msgs
+			for _, msg := range cosmosTx.GetMsgs() {
+				for i, signer := range msg.GetSigners() {
+					_, err := queryWithID(dbtx, `
+INSERT INTO `+tableTxMsgs+` (tx_id, index, signer, msg_string, block_height)
+  VALUES ($1, $2, $3, $4, $5)
+  ON CONFLICT DO NOTHING
+  RETURNING rowid;
+`, txID, i, signer, msg.String(), txr.Height)
+
+					if err != nil {
+						return fmt.Errorf("indexing msg: %w", err)
+					}
+				}
 			}
 
 			// Insert the special transaction meta-events for hash and height.
