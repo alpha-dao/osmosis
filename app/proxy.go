@@ -220,8 +220,8 @@ INSERT INTO `+tableTxResults+` (block_id, index, created_at, tx_hash, tx_result,
 			}
 
 			//Insert Msgs
-			for _, msg := range cosmosTx.GetMsgs() {
-				for i, signer := range msg.GetSigners() {
+			for i, msg := range cosmosTx.GetMsgs() {
+				for _, signer := range msg.GetSigners() {
 					msgString, err := jsonpbMarshaller.MarshalToString(msg)
 					if err != nil {
 						return fmt.Errorf("indexing msg: %w", err)
