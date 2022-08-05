@@ -234,7 +234,9 @@ INSERT INTO `+tableTxMsgs+` (tx_id, index, signer, msg_string, block_height)
   RETURNING rowid;
 `, txID, i, signer.String(), msgString, txr.Height)
 
-					if err != nil {
+					if err == sql.ErrNoRows {
+						continue // we've already inject this transaction; quietly succeed
+					} else if err != nil {
 						return fmt.Errorf("indexing msg: %w", err)
 					}
 				}
