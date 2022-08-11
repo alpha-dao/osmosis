@@ -3,6 +3,7 @@ package app
 import (
 	"database/sql"
 	"fmt"
+	sdk "github.com/cosmos/cosmos-sdk/types"
 	appparams "github.com/osmosis-labs/osmosis/v10/app/params"
 	"strings"
 	"time"
@@ -226,13 +227,14 @@ INSERT INTO `+tableTxResults+` (block_id, index, created_at, tx_hash, tx_result,
 					if err != nil {
 						return fmt.Errorf("indexing msg: %w", err)
 					}
+					msgType := sdk.MsgTypeURL(msg)
 
 					_, err = queryWithID(dbtx, `
-INSERT INTO `+tableTxMsgs+` (tx_id, index, signer, msg_string, block_height)
-  VALUES ($1, $2, $3, $4, $5)
+INSERT INTO `+tableTxMsgs+` (tx_id, index, signer, msg_string, block_height, type)
+  VALUES ($1, $2, $3, $4, $5, $6)
   ON CONFLICT DO NOTHING
   RETURNING rowid;
-`, txID, i, signer.String(), msgString, txr.Height)
+`, txID, i, signer.String(), msgString, txr.Height, msgType)
 
 					if err == sql.ErrNoRows {
 						continue // we've already inject this transaction; quietly succeed
