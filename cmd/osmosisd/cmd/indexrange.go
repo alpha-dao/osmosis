@@ -115,7 +115,7 @@ func indexRangeOfBlocks(dbPath string, startHeight int64, endHeight int64) error
 
 	count := 0
 	for i := startHeight; i < endHeight+1; i++ {
-		if count/100000 == 0 {
+		if count%100000 == 0 {
 			fmt.Println(count)
 		}
 		block := bs.LoadBlock(i)
