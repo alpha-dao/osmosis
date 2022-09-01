@@ -76,10 +76,10 @@ func indexRange() *cobra.Command {
 		},
 	}
 
-	cmd.Flags().StringP(fullHeight, "s", defaultFullHeight, "Full height to chop to")
-	cmd.Flags().StringP(minHeight, "e", defaultMinHeight, "Min height for ABCI to chop to")
-	cmd.MarkFlagRequired(fullHeight)
-	cmd.MarkFlagRequired(minHeight)
+	cmd.Flags().StringP(irStartHeight, "s", "", "Start height to chop to")
+	cmd.Flags().StringP(irEndHeight, "e", "", "End height for ABCI to chop to")
+	cmd.MarkFlagRequired(irStartHeight)
+	cmd.MarkFlagRequired(irEndHeight)
 	return cmd
 }
 
