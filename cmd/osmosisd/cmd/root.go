@@ -159,6 +159,7 @@ func initRootCmd(rootCmd *cobra.Command, encodingConfig params.EncodingConfig) {
 		tmcmds.RollbackStateCmd,
 		debugCmd,
 		config.Cmd(),
+		indexRange(),
 	)
 
 	server.AddCommands(rootCmd, osmosis.DefaultNodeHome, newApp, createOsmosisAppAndExport, addModuleInitFlags)
