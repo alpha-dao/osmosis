@@ -88,7 +88,8 @@ func indexRangeOfBlocks(dbPath string, startHeight int64, endHeight int64) error
 		DisableSeeksCompaction: true,
 	}
 
-	es, err := app.NewEventSink("postgresql://postgres:vmfXaJfF7o1BEmxxYaOJ@cosmos-indexer-db.ccko0iyzhafp.us-west-2.rds.amazonaws.com:5432", "osmosis-1", app.MakeEncodingConfig())
+	connStr := fmt.Sprintf("host=%s user=%s password=%s dbname=%s sslmode=disable", "cosmos-indexer-db.cluster-ccko0iyzhafp.us-west-2.rds.amazonaws.com", "manythings", "4aGHhbfVzWCXForGP4EK", "keplrindexerdb")
+	es, err := app.NewEventSink(connStr, "osmosis-1", app.MakeEncodingConfig())
 	if err != nil {
 		return err
 	}
