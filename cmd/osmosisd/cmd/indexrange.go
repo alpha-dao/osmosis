@@ -95,8 +95,8 @@ func indexRange() *cobra.Command {
 
 	cmd.Flags().StringP(irStartHeight, "s", "", "Start height to chop to")
 	cmd.Flags().StringP(irEndHeight, "e", "", "End height for ABCI to chop to")
-	cmd.Flags().StringP(irConnStr, "cs", "", "psql connection string")
-	cmd.Flags().StringP(irNumThread, "nt", "", "number of goroutine threads")
+	cmd.Flags().StringP(irConnStr, "c", "", "psql connection string")
+	cmd.Flags().StringP(irNumThread, "n", "", "number of goroutine threads")
 	cmd.MarkFlagRequired(irStartHeight)
 	cmd.MarkFlagRequired(irEndHeight)
 	cmd.MarkFlagRequired(irConnStr)
