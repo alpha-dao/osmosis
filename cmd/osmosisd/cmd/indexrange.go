@@ -24,6 +24,8 @@ import (
 const (
 	irStartHeight = "irStartHeight"
 	irEndHeight   = "irEndHeight"
+	irConnStr     = "irConnStr"
+	irNumThread   = "irNumThread"
 )
 
 // get cmd to convert any bech32 address to an osmo prefix.
@@ -39,6 +41,16 @@ func indexRange() *cobra.Command {
 			}
 
 			irEndHeightFlag, err := cmd.Flags().GetString(irEndHeight)
+			if err != nil {
+				return err
+			}
+
+			irConnStrFlag, err := cmd.Flags().GetString(irConnStr)
+			if err != nil {
+				return err
+			}
+
+			irNumThreadFlag, err := cmd.Flags().GetString(irNumThread)
 			if err != nil {
 				return err
 			}
@@ -65,7 +77,12 @@ func indexRange() *cobra.Command {
 				return err
 			}
 
-			err = indexRangeOfBlocks(dbPath, startHeight, endHeight)
+			numThread, err := strconv.ParseInt(irNumThreadFlag, 10, 64)
+			if err != nil {
+				return err
+			}
+
+			err = indexRangeOfBlocks(dbPath, startHeight, endHeight, irConnStrFlag, numThread)
 			if err != nil {
 				return err
 			}
@@ -78,17 +95,21 @@ func indexRange() *cobra.Command {
 
 	cmd.Flags().StringP(irStartHeight, "s", "", "Start height to chop to")
 	cmd.Flags().StringP(irEndHeight, "e", "", "End height for ABCI to chop to")
+	cmd.Flags().StringP(irConnStr, "cs", "", "psql connection string")
+	cmd.Flags().StringP(irNumThread, "nt", "", "number of goroutine threads")
 	cmd.MarkFlagRequired(irStartHeight)
 	cmd.MarkFlagRequired(irEndHeight)
+	cmd.MarkFlagRequired(irConnStr)
+	cmd.MarkFlagRequired(irNumThread)
 	return cmd
 }
 
-func indexRangeOfBlocks(dbPath string, startHeight int64, endHeight int64) error {
+func indexRangeOfBlocks(dbPath string, startHeight int64, endHeight int64, connStr string, numThreads int64) error {
 	opts := opt.Options{
 		DisableSeeksCompaction: true,
 	}
 
-	connStr := fmt.Sprintf("host=%s user=%s password=%s dbname=%s sslmode=disable", "cosmos-indexer-db.cluster-ccko0iyzhafp.us-west-2.rds.amazonaws.com", "manythings", "4aGHhbfVzWCXForGP4EK", "keplrindexerdb")
+	//fmt.Sprintf("host=%s user=%s password=%s dbname=%s sslmode=disable", "cosmos-indexer-db.cluster-ccko0iyzhafp.us-west-2.rds.amazonaws.com", "manythings", "4aGHhbfVzWCXForGP4EK", "keplrindexerdb")
 	es, err := app.NewEventSink(connStr, "osmosis-1", app.MakeEncodingConfig())
 	if err != nil {
 		return err
@@ -113,16 +134,36 @@ func indexRangeOfBlocks(dbPath string, startHeight int64, endHeight int64) error
 	bs := tmstore.NewBlockStore(db_bs)
 	ss := tmstate.NewStore(db_ss)
 
-	count := 0
-	for i := startHeight; i < endHeight+1; i++ {
-		if count%100000 == 0 {
-			fmt.Println(count)
-		}
+	window := (endHeight - startHeight) / numThreads
+	for i := int64(0); i < numThreads; i++ {
+		go func() {
+			err := loadBlockFromTo(bs, &ss, es, startHeight+i*window, int64Min(endHeight, startHeight+(i+1)*window))
+			if err != nil {
+				fmt.Println(err.Error())
+			}
+		}()
+	}
+
+	fmt.Println("Done!!")
+
+	return nil
+}
+
+func int64Min(a, b int64) int64 {
+	if a < b {
+		return a
+	}
+	return b
+}
+
+func loadBlockFromTo(bs *tmstore.BlockStore, ss *tmstate.Store, es *app.EventSink, from int64, to int64) error {
+	for i := from; i < to+1; i++ {
 		block := bs.LoadBlock(i)
 		if block == nil {
 			return fmt.Errorf("not able to load block at height %d from the blockstore", i)
 		}
-		res, err := ss.LoadABCIResponses(i)
+
+		res, err := (*ss).LoadABCIResponses(i)
 		if err != nil {
 			return fmt.Errorf("not able to load ABCI Response at height %d from the statestore", i)
 		}
@@ -152,10 +193,6 @@ func indexRangeOfBlocks(dbPath string, startHeight int64, endHeight int64) error
 			}
 			es.IndexTxEvents(txrs)
 		}
-		count += 1
 	}
-
-	fmt.Println("Done!!")
-
 	return nil
 }
