@@ -136,12 +136,7 @@ func indexRangeOfBlocks(dbPath string, startHeight int64, endHeight int64, connS
 
 	window := (endHeight - startHeight) / numThreads
 	for i := int64(0); i < numThreads; i++ {
-		go func() {
-			err := loadBlockFromTo(bs, &ss, es, startHeight+i*window, int64Min(endHeight, startHeight+(i+1)*window))
-			if err != nil {
-				fmt.Println(err.Error())
-			}
-		}()
+		go loadBlockFromTo(bs, &ss, es, startHeight+i*window, int64Min(endHeight, startHeight+(i+1)*window))
 	}
 
 	fmt.Println("Done!!")
@@ -161,11 +156,13 @@ func loadBlockFromTo(bs *tmstore.BlockStore, ss *tmstate.Store, es *app.EventSin
 	for i := from; i < to+1; i++ {
 		block := bs.LoadBlock(i)
 		if block == nil {
+			fmt.Println("not able to load block at height %d from the blockstore", i)
 			return fmt.Errorf("not able to load block at height %d from the blockstore", i)
 		}
 
 		res, err := (*ss).LoadABCIResponses(i)
 		if err != nil {
+			fmt.Println("not able to load ABCI Response at height %d from the statestore", i)
 			return fmt.Errorf("not able to load ABCI Response at height %d from the statestore", i)
 		}
 
@@ -178,6 +175,7 @@ func loadBlockFromTo(bs *tmstore.BlockStore, ss *tmstate.Store, es *app.EventSin
 
 		err = es.IndexBlockEvents(e)
 		if err != nil {
+			fmt.Println(err.Error())
 			return err
 		}
 
