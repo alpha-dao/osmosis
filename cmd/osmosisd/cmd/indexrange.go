@@ -157,6 +157,7 @@ func int64Min(a, b int64) int64 {
 }
 
 func loadBlockFromTo(bs *tmstore.BlockStore, ss *tmstate.Store, es *app.EventSink, from int64, to int64) error {
+	fmt.Printf("start: %d end: %d", from, to)
 	for i := from; i < to+1; i++ {
 		block := bs.LoadBlock(i)
 		if block == nil {
