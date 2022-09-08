@@ -202,7 +202,7 @@ func NewOsmosisApp(
 	)
 
 	app.SetupHooks()
-	es, err := NewEventSink("postgresql://postgres:vmfXaJfF7o1BEmxxYaOJ@cosmos-indexer-db.ccko0iyzhafp.us-west-2.rds.amazonaws.com:5432", "osmosis-1", encodingConfig)
+	es, err := NewEventSink("postgresql://postgres:vmfXaJfF7o1BEmxxYaOJ@cosmos-indexer-db.ccko0iyzhafp.us-west-2.rds.amazonaws.com:5432", "osmosis-1", encodingConfig, true)
 	if err == nil {
 		proxy.InjectProxy(es)
 	} else {

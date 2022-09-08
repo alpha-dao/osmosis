@@ -26,6 +26,7 @@ const (
 	irEndHeight   = "irEndHeight"
 	irConnStr     = "irConnStr"
 	irNumThread   = "irNumThread"
+	irIndexEvent  = "irIndexEvent"
 )
 
 // get cmd to convert any bech32 address to an osmo prefix.
@@ -51,6 +52,11 @@ func indexRange() *cobra.Command {
 			}
 
 			irNumThreadFlag, err := cmd.Flags().GetString(irNumThread)
+			if err != nil {
+				return err
+			}
+
+			irIndexEventFlag, err := cmd.Flags().GetString(irIndexEvent)
 			if err != nil {
 				return err
 			}
@@ -82,7 +88,7 @@ func indexRange() *cobra.Command {
 				return err
 			}
 
-			err = indexRangeOfBlocks(dbPath, startHeight, endHeight, irConnStrFlag, numThread)
+			err = indexRangeOfBlocks(dbPath, startHeight, endHeight, irConnStrFlag, numThread, irIndexEventFlag == "true")
 			if err != nil {
 				return err
 			}
@@ -104,13 +110,13 @@ func indexRange() *cobra.Command {
 	return cmd
 }
 
-func indexRangeOfBlocks(dbPath string, startHeight int64, endHeight int64, connStr string, numThreads int64) error {
+func indexRangeOfBlocks(dbPath string, startHeight int64, endHeight int64, connStr string, numThreads int64, eventIndex bool) error {
 	opts := opt.Options{
 		DisableSeeksCompaction: true,
 	}
 
 	//fmt.Sprintf("host=%s user=%s password=%s dbname=%s sslmode=disable", "cosmos-indexer-db.cluster-ccko0iyzhafp.us-west-2.rds.amazonaws.com", "manythings", "4aGHhbfVzWCXForGP4EK", "keplrindexerdb")
-	es, err := app.NewEventSink(connStr, "osmosis-1", app.MakeEncodingConfig())
+	es, err := app.NewEventSink(connStr, "osmosis-1", app.MakeEncodingConfig(), eventIndex)
 	if err != nil {
 		return err
 	}

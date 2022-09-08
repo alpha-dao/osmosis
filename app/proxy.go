@@ -26,9 +26,10 @@ const (
 // implementation stores records in a PostgreSQL database using the schema
 // defined in state/indexer/sink/psql/schema.sql.
 type EventSink struct {
-	store   *sql.DB
-	chainID string
-	config  appparams.EncodingConfig
+	store      *sql.DB
+	chainID    string
+	config     appparams.EncodingConfig
+	eventIndex bool
 }
 
 var (
@@ -38,16 +39,17 @@ var (
 // NewEventSink constructs an event sink associated with the PostgreSQL
 // database specified by connStr. Events written to the sink are attributed to
 // the specified chainID.
-func NewEventSink(connStr, chainID string, config appparams.EncodingConfig) (*EventSink, error) {
+func NewEventSink(connStr, chainID string, config appparams.EncodingConfig, eventIndex bool) (*EventSink, error) {
 	db, err := sql.Open(driverName, connStr)
 	if err != nil {
 		return nil, err
 	}
 
 	return &EventSink{
-		store:   db,
-		chainID: chainID,
-		config:  config,
+		store:      db,
+		chainID:    chainID,
+		config:     config,
+		eventIndex: eventIndex,
 	}, nil
 }
 
@@ -161,6 +163,9 @@ INSERT INTO `+tableBlocks+` (height, chain_id, created_at)
 			return fmt.Errorf("indexing block header: %w", err)
 		}
 
+		if es.eventIndex == false {
+			return nil
+		}
 		// Insert the special block meta-event for height.
 		if err := insertEvents(dbtx, blockID, 0, []abci.Event{
 			makeIndexedEvent(types.BlockHeightKey, fmt.Sprint(h.Header.Height)),
@@ -244,6 +249,9 @@ INSERT INTO `+tableTxMsgs+` (tx_id, index, signer, msg_string, block_height, typ
 				}
 			}
 
+			if es.eventIndex == false {
+				return nil
+			}
 			// Insert the special transaction meta-events for hash and height.
 			if err := insertEvents(dbtx, blockID, txID, []abci.Event{
 				makeIndexedEvent(types.TxHashKey, txHash),
