@@ -5,12 +5,12 @@ package cmd
 import (
 	"fmt"
 	app "github.com/osmosis-labs/osmosis/v10/app"
+	"github.com/spf13/cobra"
 	abcitypes "github.com/tendermint/tendermint/abci/types"
 	"github.com/tendermint/tendermint/types"
 	"os/exec"
 	"strconv"
-
-	"github.com/spf13/cobra"
+	"sync"
 
 	"github.com/syndtr/goleveldb/leveldb/opt"
 	tmstate "github.com/tendermint/tendermint/state"
@@ -135,10 +135,17 @@ func indexRangeOfBlocks(dbPath string, startHeight int64, endHeight int64, connS
 	ss := tmstate.NewStore(db_ss)
 
 	window := (endHeight - startHeight) / numThreads
-	for i := int64(0); i < numThreads; i++ {
-		go loadBlockFromTo(bs, &ss, es, startHeight+i*window, int64Min(endHeight, startHeight+(i+1)*window))
-	}
 
+	var wg sync.WaitGroup
+	for i := int64(0); i < numThreads; i++ {
+		wg.Add(1)
+		go func(gbs *tmstore.BlockStore, gss *tmstate.Store, ges *app.EventSink, gfrom int64, gto int64) {
+			loadBlockFromTo(gbs, gss, ges, gfrom, gto)
+			defer wg.Done()
+		}(bs, &ss, es, startHeight+i*window, int64Min(endHeight, startHeight+(i+1)*window))
+	}
+	//wait!
+	wg.Wait()
 	fmt.Println("Done!!")
 
 	return nil
@@ -152,7 +159,7 @@ func int64Min(a, b int64) int64 {
 }
 
 func loadBlockFromTo(bs *tmstore.BlockStore, ss *tmstate.Store, es *app.EventSink, from int64, to int64) error {
-	fmt.Printf("start: %d end: %d", from, to)
+	fmt.Printf("start: %d end: %d\n", from, to)
 	for i := from; i < to+1; i++ {
 		block := bs.LoadBlock(i)
 		if block == nil {
