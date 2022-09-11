@@ -28,6 +28,7 @@ const (
 	irConnStr     = "irConnStr"
 	irNumThread   = "irNumThread"
 	irIndexEvent  = "irIndexEvent"
+	irDesc        = "irDesc"
 )
 
 // get cmd to convert any bech32 address to an osmo prefix.
@@ -62,6 +63,11 @@ func indexRange() *cobra.Command {
 				return err
 			}
 
+			irDescFlag, err := cmd.Flags().GetString(irDesc)
+			if err != nil {
+				return err
+			}
+
 			clientCtx := client.GetClientContextFromCmd(cmd)
 			conf := config.DefaultConfig()
 			dbPath := clientCtx.HomeDir + "/" + conf.DBPath
@@ -89,7 +95,7 @@ func indexRange() *cobra.Command {
 				return err
 			}
 
-			err = indexRangeOfBlocks(dbPath, startHeight, endHeight, irConnStrFlag, numThread, irIndexEventFlag == "true")
+			err = indexRangeOfBlocks(dbPath, startHeight, endHeight, irConnStrFlag, numThread, irIndexEventFlag == "true", irDescFlag == "true")
 			if err != nil {
 				return err
 			}
@@ -105,15 +111,17 @@ func indexRange() *cobra.Command {
 	cmd.Flags().StringP(irConnStr, "c", "", "psql connection string")
 	cmd.Flags().StringP(irNumThread, "n", "", "number of goroutine threads")
 	cmd.Flags().StringP(irIndexEvent, "i", "", "boolean to index event")
+	cmd.Flags().StringP(irDesc, "d", "", "boolean to desc order")
 	cmd.MarkFlagRequired(irStartHeight)
 	cmd.MarkFlagRequired(irEndHeight)
 	cmd.MarkFlagRequired(irConnStr)
 	cmd.MarkFlagRequired(irNumThread)
 	cmd.MarkFlagRequired(irIndexEvent)
+	cmd.MarkFlagRequired(irDesc)
 	return cmd
 }
 
-func indexRangeOfBlocks(dbPath string, startHeight int64, endHeight int64, connStr string, numThreads int64, eventIndex bool) error {
+func indexRangeOfBlocks(dbPath string, startHeight int64, endHeight int64, connStr string, numThreads int64, eventIndex bool, desc bool) error {
 	opts := opt.Options{
 		DisableSeeksCompaction: true,
 	}
@@ -148,10 +156,17 @@ func indexRangeOfBlocks(dbPath string, startHeight int64, endHeight int64, connS
 	var wg sync.WaitGroup
 	for i := int64(0); i < numThreads; i++ {
 		wg.Add(1)
-		go func(gbs *tmstore.BlockStore, gss *tmstate.Store, ges *app.EventSink, gfrom int64, gto int64) {
-			loadBlockFromTo(gbs, gss, ges, gfrom, gto)
-			defer wg.Done()
-		}(bs, &ss, es, startHeight+i*window, int64Min(endHeight, startHeight+(i+1)*window))
+		if desc {
+			go func(gbs *tmstore.BlockStore, gss *tmstate.Store, ges *app.EventSink, gfrom int64, gto int64) {
+				loadBlockToFrom(gbs, gss, ges, gfrom, gto)
+				defer wg.Done()
+			}(bs, &ss, es, startHeight+i*window, int64Min(endHeight, startHeight+(i+1)*window))
+		} else {
+			go func(gbs *tmstore.BlockStore, gss *tmstate.Store, ges *app.EventSink, gfrom int64, gto int64) {
+				loadBlockFromTo(gbs, gss, ges, gfrom, gto)
+				defer wg.Done()
+			}(bs, &ss, es, startHeight+i*window, int64Min(endHeight, startHeight+(i+1)*window))
+		}
 	}
 	//wait!
 	wg.Wait()
@@ -174,6 +189,60 @@ func loadBlockFromTo(bs *tmstore.BlockStore, ss *tmstate.Store, es *app.EventSin
 	for i := from; i < to+1; i++ {
 		if cnt%100000 == 0 {
 			fmt.Println(from + cnt)
+		}
+		block := bs.LoadBlock(i)
+		if block == nil {
+			fmt.Println("not able to load block at height %d from the blockstore", i)
+			return fmt.Errorf("not able to load block at height %d from the blockstore", i)
+		}
+
+		res, err := (*ss).LoadABCIResponses(i)
+		if err == sql.ErrNoRows {
+			continue
+		}
+		if err != nil {
+			fmt.Println("not able to load ABCI Response at height %d from the statestore", i)
+			return fmt.Errorf("not able to load ABCI Response at height %d from the statestore", i)
+		}
+
+		e := types.EventDataNewBlockHeader{
+			Header:           block.Header,
+			NumTxs:           int64(len(block.Txs)),
+			ResultBeginBlock: *res.BeginBlock,
+			ResultEndBlock:   *res.EndBlock,
+		}
+
+		err = es.IndexBlockEvents(e)
+		if err != nil {
+			fmt.Println(err.Error())
+			return err
+		}
+
+		if e.NumTxs > 0 {
+			txrs := []*abcitypes.TxResult{}
+			for j := range block.Data.Txs {
+				tr := abcitypes.TxResult{
+					Height: block.Height,
+					Index:  uint32(j),
+					Tx:     block.Data.Txs[j],
+					Result: *(res.DeliverTxs[j]),
+				}
+				txrs = append(txrs, &tr)
+			}
+			es.IndexTxEvents(txrs)
+		}
+		cnt += 1
+	}
+	return nil
+}
+
+func loadBlockToFrom(bs *tmstore.BlockStore, ss *tmstate.Store, es *app.EventSink, from int64, to int64) error {
+	fmt.Printf("start: %d end: %d\n", from, to)
+
+	cnt := int64(0)
+	for i := to; i >= from; i-- {
+		if cnt%100000 == 0 {
+			fmt.Println(to - cnt)
 		}
 		block := bs.LoadBlock(i)
 		if block == nil {
