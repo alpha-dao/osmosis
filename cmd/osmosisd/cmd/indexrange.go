@@ -3,6 +3,7 @@ package cmd
 // DONTCOVER
 
 import (
+	"database/sql"
 	"fmt"
 	app "github.com/osmosis-labs/osmosis/v10/app"
 	"github.com/spf13/cobra"
@@ -168,7 +169,12 @@ func int64Min(a, b int64) int64 {
 
 func loadBlockFromTo(bs *tmstore.BlockStore, ss *tmstate.Store, es *app.EventSink, from int64, to int64) error {
 	fmt.Printf("start: %d end: %d\n", from, to)
+
+	cnt := int64(0)
 	for i := from; i < to+1; i++ {
+		if cnt%100000 == 0 {
+			fmt.Println(from + cnt)
+		}
 		block := bs.LoadBlock(i)
 		if block == nil {
 			fmt.Println("not able to load block at height %d from the blockstore", i)
@@ -176,6 +182,9 @@ func loadBlockFromTo(bs *tmstore.BlockStore, ss *tmstate.Store, es *app.EventSin
 		}
 
 		res, err := (*ss).LoadABCIResponses(i)
+		if err == sql.ErrNoRows {
+			continue
+		}
 		if err != nil {
 			fmt.Println("not able to load ABCI Response at height %d from the statestore", i)
 			return fmt.Errorf("not able to load ABCI Response at height %d from the statestore", i)
@@ -207,6 +216,7 @@ func loadBlockFromTo(bs *tmstore.BlockStore, ss *tmstate.Store, es *app.EventSin
 			}
 			es.IndexTxEvents(txrs)
 		}
+		cnt += 1
 	}
 	return nil
 }
