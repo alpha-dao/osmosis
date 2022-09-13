@@ -5,20 +5,21 @@ package cmd
 import (
 	"database/sql"
 	"fmt"
+	sdk "github.com/cosmos/cosmos-sdk/types"
 	app "github.com/osmosis-labs/osmosis/v10/app"
 	"github.com/spf13/cobra"
-	abcitypes "github.com/tendermint/tendermint/abci/types"
-	"github.com/tendermint/tendermint/types"
-	"os/exec"
-	"strconv"
-	"sync"
-
 	"github.com/syndtr/goleveldb/leveldb/opt"
+	abcitypes "github.com/tendermint/tendermint/abci/types"
 	tmstate "github.com/tendermint/tendermint/state"
 	tmstore "github.com/tendermint/tendermint/store"
+	"github.com/tendermint/tendermint/types"
 	tmdb "github.com/tendermint/tm-db"
+	"os"
+	"os/exec"
+	"strconv"
 
 	"github.com/cosmos/cosmos-sdk/client"
+	"github.com/gogo/protobuf/jsonpb"
 	"github.com/tendermint/tendermint/config"
 )
 
@@ -36,7 +37,7 @@ func indexRange() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "indexrange",
 		Short: "Example osmosisd indexrange -s 1 -e 1000, which would index block data from s height to e height.",
-		Long:  "Index range options indexes blocks at given range from blockstore.db. One needs to shut down chain before running indexrange.",
+		Long:  "Index range options indexes blocks as file at given range from blockstore.db. One needs to shut down chain before running indexrange.",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			irStartHeightFlag, err := cmd.Flags().GetString(irStartHeight)
 			if err != nil {
@@ -127,7 +128,17 @@ func indexRangeOfBlocks(dbPath string, startHeight int64, endHeight int64, connS
 	}
 
 	//fmt.Sprintf("host=%s user=%s password=%s dbname=%s sslmode=disable", "cosmos-indexer-db.cluster-ccko0iyzhafp.us-west-2.rds.amazonaws.com", "manythings", "4aGHhbfVzWCXForGP4EK", "keplrindexerdb")
-	es, err := app.NewEventSink(connStr, "osmosis-1", app.MakeEncodingConfig(), eventIndex)
+	//es, err := app.NewEventSink(connStr, "osmosis-1", app.MakeEncodingConfig(), eventIndex)
+	/*if err != nil {
+		return err
+	}*/
+	config := app.MakeEncodingConfig()
+	txResultFile, err := os.Create("txresult.csv")
+	if err != nil {
+		return err
+	}
+
+	txMsgFile, err := os.Create("txmsg.csv")
 	if err != nil {
 		return err
 	}
@@ -141,17 +152,60 @@ func indexRangeOfBlocks(dbPath string, startHeight int64, endHeight int64, connS
 	if err != nil {
 		return err
 	}
+	jsonpbMarshaller := jsonpb.Marshaler{}
 
 	defer func() {
 		db_bs.Close()
 		db_ss.Close()
-		es.DB().Close()
+		txResultFile.Close()
+		txMsgFile.Close()
+		//es.DB().Close()
 	}()
 
 	bs := tmstore.NewBlockStore(db_bs)
 	ss := tmstate.NewStore(db_ss)
 
-	window := (endHeight - startHeight) / numThreads
+	cnt := int64(0)
+	for i := startHeight; i <= endHeight; i++ {
+		if cnt%100000 == 0 {
+			fmt.Println(startHeight + cnt)
+		}
+		block := bs.LoadBlock(i)
+		abciResponse, err := ss.LoadABCIResponses(i)
+		if err != nil {
+			return err
+		}
+
+		for j := range block.Data.Txs {
+			tx := block.Data.Txs[j]
+			txr := *abciResponse.DeliverTxs[j]
+
+			cosmosTx, err := config.TxConfig.TxDecoder()(tx)
+			if err != nil {
+				return err
+			}
+			codespace, code, info, gasWanted, gasUsed := txr.Codespace, txr.Code, txr.Info, txr.GasWanted, txr.GasUsed
+			resultString, err := config.TxConfig.TxJSONEncoder()(cosmosTx)
+			txHash := fmt.Sprintf("%X", types.Tx(tx).Hash())
+
+			txResultFile.WriteString(fmt.Sprintf("%d\t%d\t'%s'\t'%s'\t'%s'\t%d\t'%s'\t'%d'\t'%d'\t'%s'\n", block.Height, j, block.Time, txHash, resultString, code, codespace, gasUsed, gasWanted, info))
+			//flush to tx_results
+			for k, m := range cosmosTx.GetMsgs() {
+				for _, s := range m.GetSigners() {
+					msgString, err := jsonpbMarshaller.MarshalToString(m)
+					if err != nil {
+						return err
+					}
+					msgType := sdk.MsgTypeURL(m)
+
+					txMsgFile.WriteString(fmt.Sprintf("%d\t%d\t%d\t'%s'\t'%s'\t'%s'\n", block.Height, j, k, s, msgString, msgType))
+				}
+			}
+			//flush to tx_msg
+		}
+		cnt++
+	}
+	/*window := (endHeight - startHeight) / numThreads
 
 	var wg sync.WaitGroup
 	for i := int64(0); i < numThreads; i++ {
@@ -170,6 +224,8 @@ func indexRangeOfBlocks(dbPath string, startHeight int64, endHeight int64, connS
 	}
 	//wait!
 	wg.Wait()
+	*/
+
 	fmt.Println("Done!!")
 
 	return nil
