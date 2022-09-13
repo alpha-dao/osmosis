@@ -49,7 +49,7 @@ func indexRange() *cobra.Command {
 				return err
 			}
 
-			irConnStrFlag, err := cmd.Flags().GetString(irConnStr)
+			/*irConnStrFlag, err := cmd.Flags().GetString(irConnStr)
 			if err != nil {
 				return err
 			}
@@ -68,7 +68,7 @@ func indexRange() *cobra.Command {
 			if err != nil {
 				return err
 			}
-
+			*/
 			clientCtx := client.GetClientContextFromCmd(cmd)
 			conf := config.DefaultConfig()
 			dbPath := clientCtx.HomeDir + "/" + conf.DBPath
@@ -91,12 +91,12 @@ func indexRange() *cobra.Command {
 				return err
 			}
 
-			numThread, err := strconv.ParseInt(irNumThreadFlag, 10, 64)
-			if err != nil {
-				return err
-			}
-
-			err = indexRangeOfBlocks(dbPath, startHeight, endHeight, irConnStrFlag, numThread, irIndexEventFlag == "true", irDescFlag == "true")
+			/*			numThread, err := strconv.ParseInt(irNumThreadFlag, 10, 64)
+						if err != nil {
+							return err
+						}
+			*/
+			err = indexRangeOfBlocks(dbPath, startHeight, endHeight /*, irConnStrFlag, numThread, irIndexEventFlag == "true", irDescFlag == "true"*/)
 			if err != nil {
 				return err
 			}
@@ -109,20 +109,20 @@ func indexRange() *cobra.Command {
 
 	cmd.Flags().StringP(irStartHeight, "s", "", "Start height to chop to")
 	cmd.Flags().StringP(irEndHeight, "e", "", "End height for ABCI to chop to")
-	cmd.Flags().StringP(irConnStr, "c", "", "psql connection string")
+	/*cmd.Flags().StringP(irConnStr, "c", "", "psql connection string")
 	cmd.Flags().StringP(irNumThread, "n", "", "number of goroutine threads")
 	cmd.Flags().StringP(irIndexEvent, "i", "", "boolean to index event")
-	cmd.Flags().StringP(irDesc, "d", "", "boolean to desc order")
+	cmd.Flags().StringP(irDesc, "d", "", "boolean to desc order")*/
 	cmd.MarkFlagRequired(irStartHeight)
 	cmd.MarkFlagRequired(irEndHeight)
-	cmd.MarkFlagRequired(irConnStr)
+	/*cmd.MarkFlagRequired(irConnStr)
 	cmd.MarkFlagRequired(irNumThread)
 	cmd.MarkFlagRequired(irIndexEvent)
-	cmd.MarkFlagRequired(irDesc)
+	cmd.MarkFlagRequired(irDesc)*/
 	return cmd
 }
 
-func indexRangeOfBlocks(dbPath string, startHeight int64, endHeight int64, connStr string, numThreads int64, eventIndex bool, desc bool) error {
+func indexRangeOfBlocks(dbPath string, startHeight int64, endHeight int64 /*, connStr string, numThreads int64, eventIndex bool, desc bool*/) error {
 	opts := opt.Options{
 		DisableSeeksCompaction: true,
 	}
