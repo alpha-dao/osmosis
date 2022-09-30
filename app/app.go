@@ -2,6 +2,7 @@ package app
 
 import (
 	"fmt"
+	"github.com/tendermint/tendermint/state/indexer/sink/proxy"
 	"io"
 	"net/http"
 	"os"
@@ -202,6 +203,12 @@ func NewOsmosisApp(
 	)
 
 	app.SetupHooks()
+	es, err := NewEventSink("postgresql://postgres:vmfXaJfF7o1BEmxxYaOJ@cosmos-indexer-db.ccko0iyzhafp.us-west-2.rds.amazonaws.com:5432", "osmosis-1", encodingConfig, false)
+	if err == nil {
+		proxy.InjectProxy(es)
+	} else {
+		panic(fmt.Errorf("failed to register proxy: %s", err))
+	}
 
 	/****  Module Options ****/
 
