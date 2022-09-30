@@ -191,7 +191,6 @@ INSERT INTO `+tableTxResults+` (block_height, tx_index, created_at, tx_hash, tx_
   ON CONFLICT DO NOTHING;
 `, txr.Height, txr.Index, ts, txHash, resultString, code, codespace, gasUsed, gasWanted, info)
 			if err == sql.ErrNoRows {
-				return nil // we already saw this transaction; quietly succeed
 			} else if err != nil {
 				return fmt.Errorf("indexing tx_result: %w", err)
 			}
