@@ -300,7 +300,7 @@ replace (
 	github.com/cosmos/iavl => github.com/osmosis-labs/iavl v0.17.3-osmo-v7
 	// use cosmos-compatible protobufs
 	github.com/gogo/protobuf => github.com/regen-network/protobuf v1.3.3-alpha.regen.1
-	github.com/tendermint/tendermint => github.com/many-things/tendermint v0.34.21-proxy-nodedup
+	github.com/tendermint/tendermint => github.com/many-things/tendermint v0.34.21-proxy-nodedup-fin
 	// use grpc compatible with cosmos protobufs
 	google.golang.org/grpc => google.golang.org/grpc v1.33.2
 )

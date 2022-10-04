@@ -180,7 +180,7 @@ func indexRangeOfBlocks(dbPath string, startHeight int64, endHeight int64, num i
 
 			timestamp := fmt.Sprintf("%4d-%02d-%02d %02d:%02d:%02d+00", block.Time.Year(), block.Time.Month(), block.Time.Day(), block.Time.Hour(), block.Time.Minute(), block.Time.Second())
 
-			txResultFile.WriteString(fmt.Sprintf("%d\t%d\t'%s'\t'%s'\t'%s'\t%d\t'%s'\t'%d'\t'%d'\t'%s'\n", block.Height, j, timestamp, txHash, resultString, code, codespace, gasUsed, gasWanted, info))
+			txResultFile.WriteString(fmt.Sprintf("%d\t%d\t%s\t%s\t%s\t%d\t%s\t%d\t%d\t%s\n", block.Height, j, timestamp, txHash, resultString, code, codespace, gasUsed, gasWanted, info))
 			//flush to tx_results
 			for k, m := range cosmosTx.GetMsgs() {
 				sMap := make(map[string]string)
@@ -196,7 +196,7 @@ func indexRangeOfBlocks(dbPath string, startHeight int64, endHeight int64, num i
 
 					msgType := sdk.MsgTypeURL(m)
 
-					txMsgFile.WriteString(fmt.Sprintf("%d\t%d\t%d\t'%s'\t'%s'\t'%s'\t%d\n", block.Height, j, k, s, msgString, msgType, code))
+					txMsgFile.WriteString(fmt.Sprintf("%d\t%d\t%d\t%s\t%s\t%s\t%d\n", block.Height, j, k, s, msgString, msgType, code))
 				}
 			}
 			//flush to tx_msg

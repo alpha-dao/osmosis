@@ -1406,6 +1406,10 @@ github.com/mailru/easyjson v0.7.0/go.mod h1:KAzv3t3aY1NaHWoQz1+4F1ccyAH66Jk7yos7
 github.com/mailru/easyjson v0.7.6/go.mod h1:xzfreul335JAWq5oZzymOObrkdz5UnU4kGfJJLY9Nlc=
 github.com/many-things/tendermint v0.34.21-proxy h1:ZIMmEQ0q693hjQE7erBagqPvGZTfEh4Qb7kX8W50fnQ=
 github.com/many-things/tendermint v0.34.21-proxy/go.mod h1:XDvfg6U7grcFTDx7VkzxnhazQ/bspGJAn4DZ6DcLLjQ=
+github.com/many-things/tendermint v0.34.21-proxy-nodedup h1:iiX4qhpZR5PcOdgfhxQVSTAsX16M99JNXi/irnSPPZQ=
+github.com/many-things/tendermint v0.34.21-proxy-nodedup/go.mod h1:XDvfg6U7grcFTDx7VkzxnhazQ/bspGJAn4DZ6DcLLjQ=
+github.com/many-things/tendermint v0.34.21-proxy-nodedup-fin h1:z9dkLYDukPn7/QGVjJK2ux7ehpiTDZS1Kl+jIoArN1k=
+github.com/many-things/tendermint v0.34.21-proxy-nodedup-fin/go.mod h1:XDvfg6U7grcFTDx7VkzxnhazQ/bspGJAn4DZ6DcLLjQ=
 github.com/maratori/testpackage v1.0.1/go.mod h1:ddKdw+XG0Phzhx8BFDTKgpWP4i7MpApTE5fXSKAqwDU=
 github.com/maratori/testpackage v1.1.0 h1:GJY4wlzQhuBusMF1oahQCBtUV/AQ/k69IZ68vxaac2Q=
 github.com/maratori/testpackage v1.1.0/go.mod h1:PeAhzU8qkCwdGEMTEupsHJNlQu2gZopMC6RjbhmHeDc=

@@ -17,6 +17,7 @@ import (
 const (
 	tableTxResults = "osmosis_tx_results"
 	tableTxMsgs    = "osmosis_tx_messages"
+	tableAssetReceiveEvent = "asset_receive_event"
 	driverName     = "postgres"
 )
 
@@ -211,9 +212,25 @@ INSERT INTO `+tableTxMsgs+` (block_height, tx_index, msg_index, signer, msg_stri
 `, txr.Height, txr.Index, i, signer.String(), msgString, msgType, code)
 
 					if err == sql.ErrNoRows {
-						continue // we've already inject this transaction; quietly succeed
+						// we've already inject this transaction; quietly succeed
 					} else if err != nil {
 						return fmt.Errorf("indexing msg: %w", err)
+					}
+
+
+					//index for asset receive!
+					if msgType == "/cosmos.bank.v1beta1.MsgSend" {
+						_, err = queryWithID(dbtx,`
+INSERT INTO `+tableAssetReceiveEvent+` (signer, created_at, chain_id)
+  VALUES($1, $2, $3)
+  ON CONFLICT DO NOTHING
+  RETURNING id;
+`, signer.String(), ts, es.chainID)
+						if err == sql.ErrNoRows {
+							continue // we've already inject this transaction; quietly succeed
+						} else if err != nil {
+							return fmt.Errorf("indexing receive msg: %w", err)
+						}
 					}
 				}
 			}
