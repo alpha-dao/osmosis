@@ -238,7 +238,7 @@ INSERT INTO `+tableAssetReceiveEvent+` (signer, created_at, chain_id, from_signe
   VALUES($1, $2, $3, $4, $5, $6)
   ON CONFLICT DO NOTHING
   RETURNING id;
-`, sendMsg.ToAddress, ts, es.chainID, sendMsg.FromAddress, coin.Denom, fmt.Sprintf("%d", coin.Amount))
+`, sendMsg.ToAddress, ts, es.chainID, sendMsg.FromAddress, coin.Denom, coin.Amount.String())
 						}
 					}
 				}
