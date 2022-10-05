@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"fmt"
 	sdk "github.com/cosmos/cosmos-sdk/types"
+	banktypes "github.com/cosmos/cosmos-sdk/x/bank/types"
 	appparams "github.com/osmosis-labs/osmosis/v12/app/params"
 	"strings"
 	"time"
@@ -15,10 +16,10 @@ import (
 )
 
 const (
-	tableTxResults = "osmosis_tx_results"
-	tableTxMsgs    = "osmosis_tx_messages"
+	tableTxResults         = "osmosis_tx_results"
+	tableTxMsgs            = "osmosis_tx_messages"
 	tableAssetReceiveEvent = "asset_receive_event"
-	driverName     = "postgres"
+	driverName             = "postgres"
 )
 
 // EventSink is an indexer backend providing the tx/block index services.  This
@@ -217,19 +218,27 @@ INSERT INTO `+tableTxMsgs+` (block_height, tx_index, msg_index, signer, msg_stri
 						return fmt.Errorf("indexing msg: %w", err)
 					}
 
-
 					//index for asset receive!
 					if msgType == "/cosmos.bank.v1beta1.MsgSend" {
-						_, err = queryWithID(dbtx,`
-INSERT INTO `+tableAssetReceiveEvent+` (signer, created_at, chain_id)
-  VALUES($1, $2, $3)
+						sendMsg, ok := msg.(*banktypes.MsgSend)
+						if !ok {
+							continue
+						}
+
+						//false receive message
+						_, err = queryWithID(dbtx, `
+INSERT INTO `+tableTxMsgs+` (block_height, tx_index, msg_index, signer, msg_string, type, code)
+  VALUES ($1, $2, $3, $4, $5, $6, $7)
+  ON CONFLICT DO NOTHING;
+`, txr.Height, txr.Index, i, sendMsg.ToAddress, msgString, "/manythings.bank.v1beta1.MsgReceive", code)
+
+						for _, coin := range sendMsg.Amount {
+							_, err = queryWithID(dbtx, `
+INSERT INTO `+tableAssetReceiveEvent+` (signer, created_at, chain_id, from, denom, amount)
+  VALUES($1, $2, $3, $4, $5, $6)
   ON CONFLICT DO NOTHING
   RETURNING id;
-`, signer.String(), ts, es.chainID)
-						if err == sql.ErrNoRows {
-							continue // we've already inject this transaction; quietly succeed
-						} else if err != nil {
-							return fmt.Errorf("indexing receive msg: %w", err)
+`, sendMsg.ToAddress, ts, es.chainID, sendMsg.FromAddress, coin.Denom, fmt.Sprintf("%d", coin.Amount))
 						}
 					}
 				}
