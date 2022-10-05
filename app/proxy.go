@@ -234,7 +234,7 @@ INSERT INTO `+tableTxMsgs+` (block_height, tx_index, msg_index, signer, msg_stri
 
 						for _, coin := range sendMsg.Amount {
 							_, err = queryWithID(dbtx, `
-INSERT INTO `+tableAssetReceiveEvent+` (signer, created_at, chain_id, from, denom, amount)
+INSERT INTO `+tableAssetReceiveEvent+` (signer, created_at, chain_id, from_signer, denom, amount)
   VALUES($1, $2, $3, $4, $5, $6)
   ON CONFLICT DO NOTHING
   RETURNING id;
