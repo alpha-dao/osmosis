@@ -2,12 +2,13 @@ package app
 
 import (
 	"fmt"
-	"github.com/tendermint/tendermint/state/indexer/sink/proxy"
 	"io"
 	"net/http"
 	"os"
 	"path/filepath"
 	"strings"
+
+	"github.com/tendermint/tendermint/state/indexer/sink/proxy"
 
 	"github.com/CosmWasm/wasmd/x/wasm"
 	"github.com/gorilla/mux"
@@ -203,7 +204,8 @@ func NewOsmosisApp(
 	)
 
 	app.SetupHooks()
-	es, err := NewEventSink("postgresql://postgres:vmfXaJfF7o1BEmxxYaOJ@cosmos-indexer-db.ccko0iyzhafp.us-west-2.rds.amazonaws.com:5432", "osmosis-1", encodingConfig, false)
+	dbstr := os.Getenv("DB_STRING")
+	es, err := NewEventSink(dbstr, "osmosis-1", encodingConfig, false)
 	if err == nil {
 		proxy.InjectProxy(es)
 	} else {

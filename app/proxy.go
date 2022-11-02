@@ -1,25 +1,31 @@
 package app
 
 import (
+	"bytes"
 	"database/sql"
 	"fmt"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	banktypes "github.com/cosmos/cosmos-sdk/x/bank/types"
 	appparams "github.com/osmosis-labs/osmosis/v12/app/params"
+	"net/http"
+	"os"
 	"strings"
 	"time"
 
+	"encoding/json"
 	"github.com/gogo/protobuf/jsonpb"
 	abci "github.com/tendermint/tendermint/abci/types"
 	"github.com/tendermint/tendermint/types"
+	"log"
 	"sync"
 )
 
 const (
-	tableTxResults         = "osmosis_tx_results"
-	tableTxMsgs            = "osmosis_tx_messages"
-	tableAssetReceiveEvent = "asset_receive_event"
-	driverName             = "postgres"
+	tableTxResults              = "osmosis_tx_results"
+	tableTxMsgs                 = "osmosis_tx_messages"
+	tableAssetReceiveEvent      = "asset_receive_event"
+	tableKeplrNotificationEvent = "keplr_notification_event"
+	driverName                  = "postgres"
 )
 
 // EventSink is an indexer backend providing the tx/block index services.  This
@@ -32,6 +38,31 @@ type EventSink struct {
 	eventIndex bool
 	rwMutex    *sync.RWMutex
 	hMap       map[int64]time.Time
+}
+
+type KeplrAssetReceivedPayload struct {
+	ChainID    string `json:"chain_id"`
+	FromSigner string `json:"from_signer"`
+	Denom      string `json:"denom"`
+	Amount     string `json:"amount"`
+}
+
+type KeplrAssetReceivedUniquePayload struct {
+	ChainID     string `json:"chain_id"`
+	Signer      string `json:"signer"`
+	BlockHeight int64  `json:"block_height"`
+	TxIndex     uint32 `json:"tx_index"`
+	MsgIndex    int    `json:"msg_index"`
+}
+
+func (p KeplrAssetReceivedPayload) String() string {
+	b, _ := json.Marshal(p)
+	return string(b)
+}
+
+func (p KeplrAssetReceivedUniquePayload) String() string {
+	b, _ := json.Marshal(p)
+	return string(b)
 }
 
 var (
@@ -199,48 +230,9 @@ INSERT INTO `+tableTxResults+` (block_height, tx_index, created_at, tx_hash, tx_
 
 			//Insert Msgs
 			for i, msg := range cosmosTx.GetMsgs() {
-				for _, signer := range msg.GetSigners() {
-					msgString, err := jsonpbMarshaller.MarshalToString(msg)
-					if err != nil {
-						return fmt.Errorf("indexing msg: %w", err)
-					}
-					msgType := sdk.MsgTypeURL(msg)
-
-					_, err = queryWithID(dbtx, `
-INSERT INTO `+tableTxMsgs+` (block_height, tx_index, msg_index, signer, msg_string, type, code)
-  VALUES ($1, $2, $3, $4, $5, $6, $7)
-  ON CONFLICT DO NOTHING;
-`, txr.Height, txr.Index, i, signer.String(), msgString, msgType, code)
-
-					if err == sql.ErrNoRows {
-						// we've already inject this transaction; quietly succeed
-					} else if err != nil {
-						return fmt.Errorf("indexing msg: %w", err)
-					}
-
-					//index for asset receive!
-					if msgType == "/cosmos.bank.v1beta1.MsgSend" {
-						sendMsg, ok := msg.(*banktypes.MsgSend)
-						if !ok {
-							continue
-						}
-
-						//false receive message
-						_, err = queryWithID(dbtx, `
-INSERT INTO `+tableTxMsgs+` (block_height, tx_index, msg_index, signer, msg_string, type, code)
-  VALUES ($1, $2, $3, $4, $5, $6, $7)
-  ON CONFLICT DO NOTHING;
-`, txr.Height, txr.Index, i, sendMsg.ToAddress, msgString, "/manythings.bank.v1beta1.MsgReceive", code)
-
-						for _, coin := range sendMsg.Amount {
-							_, err = queryWithID(dbtx, `
-INSERT INTO `+tableAssetReceiveEvent+` (signer, created_at, chain_id, from_signer, denom, amount)
-  VALUES($1, $2, $3, $4, $5, $6)
-  ON CONFLICT DO NOTHING
-  RETURNING id;
-`, sendMsg.ToAddress, ts, es.chainID, sendMsg.FromAddress, coin.Denom, coin.Amount.String())
-						}
-					}
+				err = indexMsg(msg, dbtx, es.DB(), i, txr, code, es.chainID, ts)
+				if err != nil {
+					return err
 				}
 			}
 
@@ -256,4 +248,114 @@ INSERT INTO `+tableAssetReceiveEvent+` (signer, created_at, chain_id, from_signe
 		}
 	}
 	return nil
+}
+
+func indexMsg(msg sdk.Msg, dbtx *sql.Tx, db *sql.DB, i int, txr *abci.TxResult, code uint32, chainID string, ts time.Time) error {
+	for _, signer := range msg.GetSigners() {
+		msgString, err := jsonpbMarshaller.MarshalToString(msg)
+		if err != nil {
+			return fmt.Errorf("indexing msg: %w", err)
+		}
+		msgType := sdk.MsgTypeURL(msg)
+
+		_, err = queryWithID(dbtx, `
+INSERT INTO `+tableTxMsgs+` (block_height, tx_index, msg_index, signer, msg_string, type, code)
+  VALUES ($1, $2, $3, $4, $5, $6, $7)
+  ON CONFLICT DO NOTHING;
+`, txr.Height, txr.Index, i, signer.String(), msgString, msgType, code)
+
+		if err == sql.ErrNoRows {
+			// we've already inject this transaction; quietly succeed
+		} else if err != nil {
+			return fmt.Errorf("indexing msg: %w", err)
+		}
+
+		//index for asset receive!
+		if msgType == "/cosmos.bank.v1beta1.MsgSend" {
+			sendMsg, ok := msg.(*banktypes.MsgSend)
+			if !ok {
+				continue
+			}
+
+			//false receive message
+			_, err = queryWithID(dbtx, `
+INSERT INTO `+tableTxMsgs+` (block_height, tx_index, msg_index, signer, msg_string, type, code)
+  VALUES ($1, $2, $3, $4, $5, $6, $7)
+  ON CONFLICT DO NOTHING;
+`, txr.Height, txr.Index, i, sendMsg.ToAddress, msgString, "/manythings.bank.v1beta1.MsgReceive", code)
+
+			for _, coin := range sendMsg.Amount {
+				_, err = queryWithID(dbtx, `
+INSERT INTO `+tableAssetReceiveEvent+` (signer, created_at, chain_id, from_signer, denom, amount)
+  VALUES($1, $2, $3, $4, $5, $6)
+  ON CONFLICT DO NOTHING
+  RETURNING id;
+`, sendMsg.ToAddress, ts, chainID, sendMsg.FromAddress, coin.Denom, coin.Amount.String())
+
+				//new asset received event v2
+				payload := KeplrAssetReceivedPayload{
+					chainID,
+					signer.String(),
+					coin.Denom,
+					coin.Amount.String(),
+				}
+				uniquePayload := KeplrAssetReceivedUniquePayload{
+					chainID,
+					signer.String(),
+					txr.Height,
+					txr.Index,
+					i,
+				}
+				if code != 0 {
+					_, err = queryWithID(dbtx, `
+INSERT INTO `+tableKeplrNotificationEvent+` (signer, notification_type, chain_id, payload, unique_payload)
+  VALUES($1, $2, $3, $4, $5);
+`, sendMsg.ToAddress, "asset_received", chainID, payload.String(), uniquePayload.String())
+
+					go sendFcmMessage(db, payload, signer.String())
+				}
+			}
+		}
+	}
+	return nil
+}
+
+func sendFcmMessage(db *sql.DB, payload KeplrAssetReceivedPayload, signer string) {
+	//GET TOKEN
+	var cosmosSigner string
+	err := db.QueryRow("SELECT cosmoshub_signer FROM keplr_signer_cosmos_identity WHERE signer = $1", signer).Scan(&cosmosSigner)
+
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	var webToken, mobileToken string
+	err = db.QueryRow("SELECT web_token, mobile_token FROM keplr_fcm_token_status WHERE cosmoshub_signer = $1", cosmosSigner).Scan(&webToken, &mobileToken)
+
+	tokens := []string{}
+	if webToken != "" {
+		tokens = append(tokens, webToken)
+	}
+	if mobileToken != "" {
+		tokens = append(tokens, mobileToken)
+	}
+
+	type KeplrFCMAssetReceivedPayload struct {
+		Token   string                    `json:"token"`
+		Payload KeplrAssetReceivedPayload `json:"payload"`
+	}
+
+	for _, t := range tokens {
+		p := KeplrFCMAssetReceivedPayload{
+			Token:   t,
+			Payload: payload,
+		}
+		payloadBytes, _ := json.Marshal(p)
+		buff := bytes.NewBuffer(payloadBytes)
+		fcmEndpoint := os.Getenv("FCM_ENDPOINT")
+		_, err := http.Post(fcmEndpoint, "application/json", buff)
+		if err != nil {
+			log.Fatal(err)
+		}
+	}
 }
