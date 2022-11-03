@@ -326,7 +326,7 @@ func sendFcmMessage(db *sql.DB, payload KeplrAssetReceivedPayload, signer string
 	err := db.QueryRow("SELECT cosmoshub_signer FROM keplr_signer_cosmos_identity WHERE signer = $1", signer).Scan(&cosmosSigner)
 
 	if err != nil {
-		log.Fatal(err)
+		log.New(os.Stderr, "", 0).Println(err)
 	}
 
 	var webToken, mobileToken string
@@ -355,7 +355,7 @@ func sendFcmMessage(db *sql.DB, payload KeplrAssetReceivedPayload, signer string
 		fcmEndpoint := os.Getenv("FCM_ENDPOINT")
 		_, err := http.Post(fcmEndpoint, "application/json", buff)
 		if err != nil {
-			log.Fatal(err)
+			log.New(os.Stderr, "", 0).Println(err)
 		}
 	}
 }
