@@ -33,6 +33,7 @@ func (d *Decoder) mustEmbedUnimplementedCosmosDecoderServer() {
 
 func (d *Decoder) Decode(ctx context.Context, request *DecodeRequest) (*DecodeResponse, error) {
 	cosmosTx, err := d.EncodingConfig.TxConfig.TxDecoder()(request.TxByte)
+
 	if err != nil {
 		fmt.Println(err)
 		return nil, err
@@ -55,12 +56,21 @@ func (d *Decoder) Decode(ctx context.Context, request *DecodeRequest) (*DecodeRe
 		})
 	}
 
-	return &DecodeResponse{Msgs: msgs}, nil
+	resultString, err := d.EncodingConfig.TxConfig.TxJSONEncoder()(cosmosTx)
+
+	if err != nil {
+		return nil, err
+	}
+
+	return &DecodeResponse{
+		TxResult: string(resultString),
+		Msgs:     msgs,
+	}, nil
 }
 
 func getSliceFromAccAddress(addrs []sdk.AccAddress) []string {
 	var results []string
-	var sMap map[string]string
+	sMap := map[string]string{}
 	for _, s := range addrs {
 		if _, ok := sMap[s.String()]; ok {
 			continue

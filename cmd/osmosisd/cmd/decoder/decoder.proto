@@ -15,6 +15,7 @@ message DecodeRequest {
 
 message DecodeResponse {
   repeated GeneralCosmosMsg msgs = 1;
+  string txResult = 2;
 }
 
 // Service proto
