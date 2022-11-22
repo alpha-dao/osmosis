@@ -62,9 +62,10 @@ func getSliceFromAccAddress(addrs []sdk.AccAddress) []string {
 	var results []string
 	var sMap map[string]string
 	for _, s := range addrs {
-		if _, ok := sMap[s.String()]; !ok {
+		if _, ok := sMap[s.String()]; ok {
 			continue
 		}
+		sMap[s.String()] = "exists"
 		results = append(results, s.String())
 	}
 	return results
