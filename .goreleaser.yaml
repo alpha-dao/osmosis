@@ -62,66 +62,6 @@ builds:
       - ledger
       - static_wasm
 
-  - id: osmosisd-linux-amd64
-    main: ./cmd/osmosisd
-    binary: osmosisd
-    hooks:
-      pre:
-        - wget https://github.com/CosmWasm/wasmvm/releases/download/{{ .Env.COSMWASM_VERSION }}/libwasmvm_muslc.x86_64.a -O /usr/lib/x86_64-linux-gnu/libwasmvm_muslc.a
-    goos:
-      - linux
-    goarch:
-      - amd64
-    env:
-      - CC=x86_64-linux-gnu-gcc
-    flags:
-      - -mod=readonly
-      - -trimpath
-    ldflags:
-      - -X github.com/cosmos/cosmos-sdk/version.Name=osmosis
-      - -X github.com/cosmos/cosmos-sdk/version.AppName=osmosisd
-      - -X github.com/cosmos/cosmos-sdk/version.Version={{ .Version }}
-      - -X github.com/cosmos/cosmos-sdk/version.Commit={{ .Commit }}
-      - -X github.com/cosmos/cosmos-sdk/version.BuildTags=netgo,ledger,muslc,osusergo
-      - -w -s
-      - -linkmode=external
-      - -extldflags '-Wl,-z,muldefs -static -lm'
-    tags:
-      - netgo
-      - ledger
-      - muslc
-      - osusergo
-
-  - id: osmosisd-linux-arm64
-    main: ./cmd/osmosisd
-    binary: osmosisd
-    hooks:
-      pre:
-        - wget https://github.com/CosmWasm/wasmvm/releases/download/{{ .Env.COSMWASM_VERSION }}/libwasmvm_muslc.aarch64.a -O /usr/lib/aarch64-linux-gnu/libwasmvm_muslc.a
-    goos:
-      - linux
-    goarch:
-      - arm64
-    env:
-      - CC=aarch64-linux-gnu-gcc
-    flags:
-      - -mod=readonly
-      - -trimpath
-    ldflags:
-      - -X github.com/cosmos/cosmos-sdk/version.Name=osmosis 
-      - -X github.com/cosmos/cosmos-sdk/version.AppName=osmosisd 
-      - -X github.com/cosmos/cosmos-sdk/version.Version={{ .Version }} 
-      - -X github.com/cosmos/cosmos-sdk/version.Commit={{ .Commit }}
-      - -X github.com/cosmos/cosmos-sdk/version.BuildTags=netgo,ledger,muslc,osusergo
-      - -w -s
-      - -linkmode=external
-      - -extldflags '-Wl,-z,muldefs -static -lm'
-    tags:
-      - netgo
-      - ledger
-      - muslc
-      - osusergo
-
 universal_binaries:
   - id: osmosisd-darwin-universal
     ids:
@@ -132,22 +72,18 @@ universal_binaries:
 archives:
   - id: zipped
     builds:
-      # - osmosisd-darwin-universal
-      - osmosisd-linux-amd64
-      - osmosisd-linux-arm64
-      # - osmosisd-darwin-amd64
-      # - osmosisd-darwin-arm64
+      - osmosisd-darwin-universal
+      - osmosisd-darwin-amd64
+      - osmosisd-darwin-arm64
     name_template: "{{.ProjectName}}-{{ .Version }}-{{ .Os }}-{{ .Arch }}"
     format: tar.gz
     files:
       - none*
   - id: binaries
     builds:
-      # - osmosisd-darwin-universal
-      - osmosisd-linux-amd64
-      - osmosisd-linux-arm64
-      # - osmosisd-darwin-amd64
-      # - osmosisd-darwin-arm64
+      - osmosisd-darwin-universal
+      - osmosisd-darwin-amd64
+      - osmosisd-darwin-arm64
     name_template: "{{.ProjectName}}-{{ .Version }}-{{ .Os }}-{{ .Arch }}"
     format: binary
     files:
@@ -212,7 +148,6 @@ release:
   name_template: "Osmosis v{{.Version}} 🧪"
   mode: replace
   draft: true
-
 # Docs: https://goreleaser.com/customization/announce/
 # We could automatically announce the release in
 # - discord
@@ -223,6 +158,6 @@ release:
 # - reddit
 #
 # announce:
-  # discord:
-  #   enabled: true
-  #   message_template: 'New {{.Tag}} is out!'
+# discord:
+#   enabled: true
+#   message_template: 'New {{.Tag}} is out!'
