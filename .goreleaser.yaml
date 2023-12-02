@@ -100,7 +100,7 @@ changelog:
 # Docs: https://goreleaser.com/customization/release/
 release:
   github:
-    owner: osmosis-labs
+    owner: many-things
     name: osmosis
   replace_existing_draft: true
   header: |
